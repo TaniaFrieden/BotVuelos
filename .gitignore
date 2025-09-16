@@ -205,3 +205,11 @@ cython_debug/
 marimo/_static/
 marimo/_lsp/
 __marimo__/
+
+.env
+.amadeus_token.json
+price_log.txt
+__pycache__/
+*.pyc
+EOF
+token

@@ -1,0 +1,63 @@
+name: Flight Price Bot
+
+on:
+  schedule:
+    # Corre cada 30 min (UTC). AR = UTC-3.
+    - cron: "*/30 * * * *"
+  workflow_dispatch: {}
+
+jobs:
+  run-bot:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write   # para commitear price_state.json
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install deps
+        run: |
+          python -m pip install --upgrade pip
+          pip install requests python-dotenv tzdata
+
+      - name: Run bot
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          AMADEUS_CLIENT_ID: ${{ secrets.AMADEUS_CLIENT_ID }}
+          AMADEUS_CLIENT_SECRET: ${{ secrets.AMADEUS_CLIENT_SECRET }}
+          # Opcional: forzar entorno desde el workflow
+          # AMADEUS_ENV: test
+        run: |
+          # (Opcional) Restringir franja horaria AR (08–23) desde el workflow:
+          python - << 'PY'
+from datetime import datetime
+import zoneinfo, sys
+now = datetime.now(zoneinfo.ZoneInfo("America/Argentina/Buenos_Aires"))
+if not (8 <= now.hour <= 23):
+    print("Fuera de franja horaria AR, no ejecuto.")
+    sys.exit(0)
+PY
+          python price_bot_amadeus.py
+
+      - name: Commit state if changed
+        run: |
+          if [ -f "price_state.json" ]; then
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add price_state.json price_log.txt || true
+            if ! git diff --cached --quiet; then
+              git commit -m "Update state [skip ci]"
+              git push
+            else
+              echo "Sin cambios en el estado."
+            fi
+          else
+            echo "No hay price_state.json; nada para commitear."
