@@ -33,18 +33,16 @@ jobs:
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
           AMADEUS_CLIENT_ID: ${{ secrets.AMADEUS_CLIENT_ID }}
           AMADEUS_CLIENT_SECRET: ${{ secrets.AMADEUS_CLIENT_SECRET }}
-          # Opcional: forzar entorno desde el workflow
+          # Si querés forzar el entorno desde el workflow, descomentá:
           # AMADEUS_ENV: test
         run: |
-          # (Opcional) Restringir franja horaria AR (08–23) desde el workflow:
-          python - << 'PY'
-from datetime import datetime
-import zoneinfo, sys
-now = datetime.now(zoneinfo.ZoneInfo("America/Argentina/Buenos_Aires"))
-if not (8 <= now.hour <= 23):
-    print("Fuera de franja horaria AR, no ejecuto.")
-    sys.exit(0)
-PY
+          # (Opcional) Restringir franja horaria AR (08–23) usando bash:
+          HOUR=$(TZ=America/Argentina/Buenos_Aires date +%H)
+          if [ "$HOUR" -lt 8 ] || [ "$HOUR" -gt 23 ]; then
+            echo "Fuera de franja horaria AR ($HOUR hs), no ejecuto."
+            exit 0
+          fi
+
           python price_bot_amadeus.py
 
       - name: Commit state if changed
